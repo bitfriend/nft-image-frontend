@@ -7,15 +7,20 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  MenuItem,
   Select,
   TextField,
   Toolbar,
   Typography,
   makeStyles
 } from '@material-ui/core';
-import Web3 from 'web3';
 import Web3Modal from 'web3modal';
+import { Web3Provider } from '@ethersproject/providers';
+import { Contract } from '@ethersproject/contracts';
+import { BigNumber } from '@ethersproject/bignumber';
+
 import './App.css';
+import ArtToken from './abis/ArtToken.json';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -36,10 +41,11 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 interface AppState {
-  provider: any;
-  web3: Web3 | null;
-  account: string;
+  web3Provider: any;
+  signedInAddress: string;
+  currentAccount: string;
   tokenId: string;
+  imageUrl: string;
 }
 
 const App: FunctionComponent = () => {
@@ -49,19 +55,21 @@ const App: FunctionComponent = () => {
     cacheProvider: false
   });
   const [state, setState] = useState<AppState>({
-    provider: null,
-    web3: null,
-    account: '',
-    tokenId: ''
+    web3Provider: null,
+    signedInAddress: '',
+    currentAccount: '',
+    tokenId: '',
+    imageUrl: ''
   });
 
   const onConnectWallet = async () => {
-    let provider = await web3Modal.connect();
-    let web3 = new Web3(provider);
+    const provider = await web3Modal.connect();
+    const signedInAddress = provider.selectedAddress;
+    const web3Provider = new Web3Provider(provider);
     setState({
       ...state,
-      provider,
-      web3
+      web3Provider,
+      signedInAddress
     });
   }
 
@@ -69,15 +77,17 @@ const App: FunctionComponent = () => {
     web3Modal.clearCachedProvider();
     setState({
       ...state,
-      provider: null,
-      web3: null
+      web3Provider: null,
+      signedInAddress: '',
+      currentAccount: '',
+      imageUrl: ''
     });
   }
 
   const onChangeAccount = (event: ChangeEvent<{ value: any }>) => {
     setState({
       ...state,
-      account: event.target.value as string
+      currentAccount: event.target.value as string
     });
   }
 
@@ -85,6 +95,28 @@ const App: FunctionComponent = () => {
     setState({
       ...state,
       tokenId: event.target.value as string
+    });
+  }
+
+  const onClickMint = async () => {
+    const { web3Provider, currentAccount, tokenId } = state;
+    const { REACT_APP_TOKEN_ADDRESS } = process.env;
+    const signer = web3Provider.getSigner();
+    const contract = new Contract(
+      REACT_APP_TOKEN_ADDRESS,
+      ArtToken.abi,
+      signer
+    );
+    const tx = await contract.mint(
+      currentAccount,
+      BigNumber.from(tokenId),
+      'https://ipfs.infura.io/ipfs/QmWc6YHE815F8kExchG9kd2uSsv7ZF1iQNn23bt5iKC6K3/image'
+    );
+    const receipt = await tx.wait();
+    const imageUrl = await contract.tokenURI(BigNumber.from(tokenId));
+    setState({
+      ...state,
+      imageUrl
     });
   }
 
@@ -98,9 +130,9 @@ const App: FunctionComponent = () => {
           <Button
             variant="outlined"
             color="inherit"
-            onClick={!state.provider ? onConnectWallet : onDisconnectWallet}
+            onClick={!state.web3Provider ? onConnectWallet : onDisconnectWallet}
           >
-            {!state.provider ? 'Connect Wallet' : 'DisConnect Wallet'}
+            {!state.web3Provider ? 'Connect Wallet' : 'DisConnect Wallet'}
           </Button>
         </Toolbar>
       </AppBar>
@@ -111,15 +143,21 @@ const App: FunctionComponent = () => {
               <InputLabel htmlFor="account-address">Account</InputLabel>
               <Select
                 required
-                value={state.account}
+                value={state.currentAccount}
                 onChange={onChangeAccount}
+                disabled={!state.web3Provider}
                 inputProps={{
                   id: 'account-address'
                 }}
               >
-                <option value={10}>Ten</option>
-                <option value={20}>Twenty</option>
-                <option value={30}>Thirty</option>
+                {[state.signedInAddress].map((account, index) => (
+                  <MenuItem
+                    key={index.toString()}
+                    value={account}
+                  >
+                    {account}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
@@ -130,6 +168,7 @@ const App: FunctionComponent = () => {
               label="Token ID"
               value={state.tokenId}
               onChange={onChangeTokenId}
+              disabled={!state.web3Provider}
             />
           </Grid>
           <Grid item xs={2}>
@@ -137,11 +176,22 @@ const App: FunctionComponent = () => {
               variant="contained"
               color="primary"
               className={classes.formControl}
+              onClick={onClickMint}
+              disabled={!state.web3Provider}
             >
               Mint
             </Button>
           </Grid>
         </Grid>
+        {!!state.imageUrl && (
+          <Box>
+            <img
+              alt=""
+              src={state.imageUrl}
+              width="100%"
+            />
+          </Box>
+        )}
       </Container>
     </div>
   );

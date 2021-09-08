@@ -1,3 +1,22 @@
+# Fetch an address the smart contract deployed
+
+When migrating the smart contract of vft-image-backend, the following output will be shown:
+
+`Art Token deployed to: 0x...`
+
+Save this address to .env of this frontend project.
+
+# Overwrite abis on change of smart contract
+
+When you change the backend project, you must overwrite abis directory with src/abis directory of nft-image-backend project.
+
+# Operation
+
+You must connect wallet before you can handle all UI elements.
+Select the wallet address that will accept the current token.
+Input the ID of current token.
+When you click mint, backend will mint new token and frontend will show image of token.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
